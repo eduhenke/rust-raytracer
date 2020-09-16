@@ -15,9 +15,10 @@ const SCALE: f32 = 2.5;
 const BACKGROUND: Color = Color::RGB(50, 0, 50);
 
 mod ray;
-mod sphere;
+mod shapes;
 use ray::Ray;
-use sphere::Sphere;
+use shapes::sphere::Sphere;
+use shapes::Castable;
 
 type ScreenPoint = Point2<f32>;
 struct NDCCoords {
@@ -145,7 +146,7 @@ fn main() -> Result<(), String> {
       .flat_map(|x| (0..(SCREEN_HEIGHT as i32)).map(move |y| (x, y)))
       .collect();
 
-    let colors: Vec<((i32, i32), Option<Color>)> = grid
+    let colors: Vec<((i32, i32), Color)> = grid
       .into_par_iter()
       .map(|(x, y)| {
         let screen_point = Point2::new(x as f32, y as f32);
@@ -161,16 +162,25 @@ fn main() -> Result<(), String> {
           direction: direction.into_inner(),
         };
 
-        ((x, y), sphere.get_color(&ray, &light))
+        let a = sphere.cast_ray(&ray);
+        let color = match a {
+          None => BACKGROUND,
+          Some(info) => {
+            // https://www.scratchapixel.com/lessons/3d-basic-rendering/introduction-to-shading/shading-normals
+            let pointing_to_light = Unit::new_normalize(light.origin - info.point_hit);
+
+            let facing_ratio: f32 = info.normal.dot(&pointing_to_light).max(0.);
+            let lightness_percentage = facing_ratio;
+            let color = (255. * lightness_percentage) as u8;
+            Color::RGB(color, color, color)
+          }
+        };
+
+        ((x, y), color)
       })
       .collect();
 
-    for ((x, y), result) in colors.into_iter() {
-      let color = match result {
-        None => BACKGROUND,
-        Some(color) => color,
-      };
-
+    for ((x, y), color) in colors.into_iter() {
       canvas.set_draw_color(color);
       canvas.draw_point((x as i32, y as i32)).unwrap();
     }

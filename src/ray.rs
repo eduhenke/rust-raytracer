@@ -1,4 +1,4 @@
-use na::{Vector3, Point3};
+use na::{Point3, Vector3};
 
 #[derive(Debug, Copy, Clone)]
 pub struct Ray {

@@ -1,4 +1,5 @@
-use super::ray::Ray;
+use super::Castable;
+use super::{super::ray::Ray, CastInfo};
 use na::{Point3, Unit};
 use sdl2::pixels::Color;
 
@@ -22,18 +23,19 @@ fn find_roots_quadratic(a: f32, b: f32, c: f32) -> Option<(f32, f32)> {
 impl Sphere {
   // https://www.scratchapixel.com/lessons/3d-basic-rendering/minimal-ray-tracer-rendering-simple-shapes/ray-sphere-intersection
   fn find_roots_intersection(&self, Ray { origin, direction }: &Ray) -> Option<(f32, f32)> {
-    // println!("{:?}", Ray{origin: *origin, direction: *direction});
     let diff = origin - self.center;
-    // println!("diff: {:?}", diff);
-    // println!("center: {:?}", self.center);
     let a = direction.dot(direction);
     let b = 2. * direction.dot(&diff);
     let c = diff.norm_squared() - self.radius.powi(2);
 
     find_roots_quadratic(a, b, c)
   }
-  pub fn get_color(&self, ray: &Ray, light: &Ray) -> Option<Color> {
-    match self.find_roots_intersection(ray) {
+}
+
+impl Castable for Sphere {
+  fn cast_ray(&self, ray: &Ray) -> Option<CastInfo> {
+    let a = self.find_roots_intersection(ray);
+    match a {
       None => None,
       Some((t0, t1)) => {
         let mut t = t0;
@@ -47,19 +49,14 @@ impl Sphere {
           }
           t = t1;
         }
-        // println!("t0: {} t1: {}", t0, t1);
         let point_hit = ray.origin + (t * ray.direction);
 
-        let normal = Unit::new_normalize(point_hit - self.center).into_inner();
+        let normal = Unit::new_normalize(point_hit - self.center);
 
-        let pointing_to_light = Unit::new_normalize(light.origin - point_hit);
-
-        // https://www.scratchapixel.com/lessons/3d-basic-rendering/introduction-to-shading/shading-normals
-        let facing_ratio: f32 = normal.dot(&pointing_to_light).max(0.);
-
-        let lightness_percentage = facing_ratio;
-        let color = (255. * lightness_percentage) as u8;
-        Some(Color::RGB(color, color, color))
+        Some(CastInfo {
+          normal: normal,
+          point_hit: point_hit,
+        })
       }
     }
   }
