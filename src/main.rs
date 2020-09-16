@@ -1,6 +1,9 @@
 extern crate nalgebra as na;
 extern crate sdl2;
 
+use crate::shapes::plane::Plane;
+use crate::shapes::CastInfo;
+use crate::shapes::Shape;
 use na::geometry::{Perspective3, Point2, Point3};
 use na::{Unit, Vector3};
 use rayon::prelude::*;
@@ -17,8 +20,7 @@ const BACKGROUND: Color = Color::RGB(50, 0, 50);
 mod ray;
 mod shapes;
 use ray::Ray;
-use shapes::sphere::Sphere;
-use shapes::Castable;
+use shapes::{sphere::Sphere, Castable, Movable};
 
 type ScreenPoint = Point2<f32>;
 struct NDCCoords {
@@ -49,6 +51,10 @@ fn main() -> Result<(), String> {
     center: Point3::new(0., 0., -10.),
     radius: 1.,
   };
+  let mut plane = Plane {
+    normal: Unit::new_normalize(Vector3::new(0., 1., 0.)),
+  };
+  let mut objects: Vec<&mut (dyn Shape + Sync)> = vec![&mut sphere, &mut plane];
 
   let mut eye = Point3::new(0., 0., 0.);
   let light = Ray {
@@ -79,7 +85,7 @@ fn main() -> Result<(), String> {
   // canvas.copy(texture, src, dst)
   'running: loop {
     let loop_time = Instant::now();
-
+    let sphere = objects.get_mut(0).unwrap();
     for event in event_pump.poll_iter() {
       match event {
         Event::Quit { .. }
@@ -90,27 +96,27 @@ fn main() -> Result<(), String> {
         Event::KeyDown {
           keycode: Some(Keycode::A),
           ..
-        } => sphere.center.x -= 1.,
+        } => sphere.move_to(Vector3::new(-1., 0., 0.)),
         Event::KeyDown {
           keycode: Some(Keycode::D),
           ..
-        } => sphere.center.x += 1.,
+        } => sphere.move_to(Vector3::new(1., 0., 0.)),
         Event::KeyDown {
           keycode: Some(Keycode::W),
           ..
-        } => sphere.center.z -= 1.,
+        } => sphere.move_to(Vector3::new(0., 0., -1.)),
         Event::KeyDown {
           keycode: Some(Keycode::S),
           ..
-        } => sphere.center.z += 1.,
+        } => sphere.move_to(Vector3::new(0., 0., 1.)),
         Event::KeyDown {
           keycode: Some(Keycode::Q),
           ..
-        } => sphere.center.y += 1.,
+        } => sphere.move_to(Vector3::new(0., 1., 0.)),
         Event::KeyDown {
           keycode: Some(Keycode::E),
           ..
-        } => sphere.center.y -= 1.,
+        } => sphere.move_to(Vector3::new(0., -1., 0.)),
         Event::KeyDown {
           keycode: Some(Keycode::Left),
           ..
@@ -132,8 +138,7 @@ fn main() -> Result<(), String> {
           ..
         } => {
           println!("eye: {:?}", eye);
-          println!("sphere: {:?}", sphere.center);
-          // println!(": {:?}", sphere.center);
+          println!("sphere: {:?}", sphere);
         }
         _ => {}
       }
@@ -162,8 +167,24 @@ fn main() -> Result<(), String> {
           direction: direction.into_inner(),
         };
 
-        let a = sphere.cast_ray(&ray);
-        let color = match a {
+        let cast_info =
+          objects
+            .iter()
+            .map(|obj| obj.cast_ray(&ray))
+            .fold(None, |acc, val| match acc {
+              None => val,
+              Some(acc_info) => match val {
+                None => Some(acc_info),
+                Some(val_info) => {
+                  if acc_info.distance > val_info.distance {
+                    return Some(val_info);
+                  } else {
+                    return Some(acc_info);
+                  }
+                }
+              },
+            });
+        let color = match cast_info {
           None => BACKGROUND,
           Some(info) => {
             // https://www.scratchapixel.com/lessons/3d-basic-rendering/introduction-to-shading/shading-normals

@@ -1,6 +1,8 @@
-use super::Castable;
 use super::{super::ray::Ray, CastInfo};
+use super::{Castable, Movable};
+use crate::shapes::Shape;
 use na::{Point3, Unit};
+use nalgebra::Vector3;
 use sdl2::pixels::Color;
 
 #[derive(Debug, Copy, Clone)]
@@ -56,8 +58,17 @@ impl Castable for Sphere {
         Some(CastInfo {
           normal: normal,
           point_hit: point_hit,
+          distance: t,
         })
       }
     }
   }
 }
+
+impl Movable for Sphere {
+  fn move_to(&mut self, direction: Vector3<f32>) {
+    self.center += direction;
+  }
+}
+
+impl Shape for Sphere {}
