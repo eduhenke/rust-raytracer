@@ -12,6 +12,7 @@ use na::geometry::{Point2, Point3, Perspective3};
 const SCREEN_WIDTH: f32 = 240.0;
 const SCREEN_HEIGHT: f32 = 180.0;
 const SCALE: f32 = 2.5;
+const BACKGROUND: Color = Color::RGB(50, 0, 50);
 
 mod ray;
 mod sphere;
@@ -68,9 +69,6 @@ fn main() -> Result<(), String> {
     let mut canvas = window.into_canvas().build().map_err(|e| e.to_string())?;
 
     canvas.set_scale(SCALE, SCALE)?;
-    canvas.set_draw_color(Color::RGB(0, 0, 0));
-    canvas.clear();
-    canvas.present();
     let mut event_pump = sdl_context.event_pump()?;
 
     // canvas.copy(texture, src, dst)
@@ -121,7 +119,7 @@ fn main() -> Result<(), String> {
             }
         }
     
-        canvas.set_draw_color(Color::RGB(0, 0, 0));
+        canvas.set_draw_color(BACKGROUND);
         canvas.clear();
         
         let grid: Vec<(i32, i32)> = (0..(SCREEN_WIDTH as i32)).flat_map(|x| {
@@ -130,7 +128,7 @@ fn main() -> Result<(), String> {
             })
         }).collect();
 
-        let colors: Vec<((i32, i32), Color)> = grid.into_par_iter()
+        let colors: Vec<((i32, i32), Option<Color>)> = grid.into_par_iter()
             .map(|(x, y)| {
                 let screen_point = Point2::new(x as f32, y as f32);
             
@@ -145,7 +143,12 @@ fn main() -> Result<(), String> {
                 ((x, y), sphere.get_color(&ray, &light))
             }).collect();
 
-        for ((x, y), color) in colors.into_iter() {
+        for ((x, y), result) in colors.into_iter() {
+            let color = match result {
+                None => BACKGROUND,
+                Some(color) => color,
+            };
+
             canvas.set_draw_color(color);
             canvas.draw_point((x as i32, y as i32)).unwrap();
         }

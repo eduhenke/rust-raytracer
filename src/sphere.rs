@@ -28,14 +28,14 @@ impl Sphere {
       // println!("diff: {:?}", diff);
       // println!("center: {:?}", self.center);
       let a = direction.dot(direction);
-      let b = 2. * direction.dot(&diff); 
+      let b = 2. * direction.dot(&diff);
       let c = diff.norm_squared() - self.radius.powi(2);
 
       find_roots_quadratic(a, b, c)
   }
-  pub fn get_color(&self, ray: &Ray, light: &Ray) -> Color {
+  pub fn get_color(&self, ray: &Ray, light: &Ray) -> Option<Color> {
       match self.find_roots_intersection(ray) {
-          None => Color::BLACK,
+          None => None,
           Some((t0, t1)) => {
               let mut t = t0;
               if t0 > t1 {
@@ -43,20 +43,23 @@ impl Sphere {
               }
               if t0 < 0. {
                   if t1 < 0. { // both t0 and t1 are negative
-                      return Color::BLACK
+                      return None
                   }
                   t = t1;
               }
               // println!("t0: {} t1: {}", t0, t1);
               let point_hit = ray.origin + (t*ray.direction);
 
-              let normal = Unit::new_normalize(point_hit - self.center);
-              
+              let normal = Unit::new_normalize(point_hit - self.center).into_inner();
+
               let pointing_to_light = Unit::new_normalize(light.origin - point_hit);
-              let lightness_percentage: f32 = normal.into_inner().dot(&pointing_to_light);
-              
-              let color = (255.*lightness_percentage.max(0.)) as u8;
-              Color::RGB(color, color, color)
+
+              // https://www.scratchapixel.com/lessons/3d-basic-rendering/introduction-to-shading/shading-normals
+              let facing_ratio: f32 = normal.dot(&pointing_to_light).max(0.);
+
+              let lightness_percentage = facing_ratio;
+              let color = (255.*lightness_percentage) as u8;
+              Some(Color::RGB(color, color, color))
           }
       }
   }
