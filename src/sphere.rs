@@ -3,7 +3,7 @@ use sdl2::pixels::Color;
 use super::ray::Ray;
 
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub struct Sphere {
   pub center: Point3<f32>,
   pub radius: f32

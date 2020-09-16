@@ -1,15 +1,16 @@
 extern crate sdl2;
 extern crate nalgebra as na;
 
+use rayon::prelude::*;
 use sdl2::pixels::Color;
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
-use std::time::Duration;
+use std::time::Instant;
 use na::{Vector3, Unit};
 use na::geometry::{Point2, Point3, Perspective3};
 
 const SCREEN_WIDTH: f32 = 240.0;
-const SCREEN_HEIGHT: f32 = 160.0;
+const SCREEN_HEIGHT: f32 = 180.0;
 const SCALE: f32 = 2.5;
 
 mod ray;
@@ -74,6 +75,8 @@ fn main() -> Result<(), String> {
 
     // canvas.copy(texture, src, dst)
     'running: loop {
+        let loop_time = Instant::now();
+        
         for event in event_pump.poll_iter() {
             match event {
                 Event::Quit {..} | Event::KeyDown { keycode: Some(Keycode::Escape), .. } => {
@@ -121,29 +124,38 @@ fn main() -> Result<(), String> {
         canvas.set_draw_color(Color::RGB(0, 0, 0));
         canvas.clear();
         
-        for x in 0..(SCREEN_WIDTH as i32) {
-            for y in 0..(SCREEN_HEIGHT as i32) {
+        let grid: Vec<(i32, i32)> = (0..(SCREEN_WIDTH as i32)).flat_map(|x| {
+            (0..(SCREEN_HEIGHT as i32)).map(move |y| {
+                (x, y)
+            })
+        }).collect();
+
+        let colors: Vec<((i32, i32), Color)> = grid.into_par_iter()
+            .map(|(x, y)| {
                 let screen_point = Point2::new(x as f32, y as f32);
             
                 let ndc: NDCCoords = screen_point.into();
                 
                 // Unproject them to view-space.
                 let near_view_point = projection.unproject_point(&ndc.near);
-
+    
                 let direction = Unit::new_normalize(near_view_point - eye);
                 let ray = Ray { origin: eye, direction: direction.into_inner() };
                 
-                let color = sphere.get_color(&ray, &light);
-                canvas.set_draw_color(color);
-                canvas.draw_point((x, y))?;
-            }
+                ((x, y), sphere.get_color(&ray, &light))
+            }).collect();
+
+        for ((x, y), color) in colors.into_iter() {
+            canvas.set_draw_color(color);
+            canvas.draw_point((x as i32, y as i32)).unwrap();
         }
+
         canvas.present();
 
 
-        ::std::thread::sleep(Duration::new(0, 1_000_000_000u32 / 30));
-        // The rest of the game loop goes here...
-        
+        let micros = loop_time.elapsed().as_micros();
+        let fps = 1_000_000/micros;
+        println!("elapsed(ms): {} | fps: {}", micros/1000, fps)
     }
 
     Ok(())
