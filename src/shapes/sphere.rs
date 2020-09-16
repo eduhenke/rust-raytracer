@@ -51,7 +51,7 @@ impl Castable for Sphere {
           }
           t = t1;
         }
-        let point_hit = ray.origin + (t * ray.direction);
+        let point_hit = ray.origin + (t * ray.direction.into_inner());
 
         let normal = Unit::new_normalize(point_hit - self.center);
 

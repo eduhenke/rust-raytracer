@@ -15,12 +15,13 @@ use std::time::Instant;
 const SCREEN_WIDTH: f32 = 240.0;
 const SCREEN_HEIGHT: f32 = 180.0;
 const SCALE: f32 = 2.5;
-const BACKGROUND: Color = Color::RGB(50, 0, 50);
 
 mod ray;
 mod shapes;
+mod world;
 use ray::Ray;
 use shapes::{sphere::Sphere, Castable, Movable};
+use world::World;
 
 type ScreenPoint = Point2<f32>;
 struct NDCCoords {
@@ -47,20 +48,6 @@ impl From<NDCCoords> for ScreenPoint {
 }
 
 fn main() -> Result<(), String> {
-  let mut sphere = Sphere {
-    center: Point3::new(0., 0., -10.),
-    radius: 1.,
-  };
-  let mut plane = Plane {
-    normal: Unit::new_normalize(Vector3::new(0., 1., 0.)),
-  };
-  let mut objects: Vec<&mut (dyn Shape + Sync)> = vec![&mut sphere, &mut plane];
-
-  let mut eye = Point3::new(0., 0., 0.);
-  let light = Ray {
-    direction: Vector3::new(0., -1., 0.),
-    origin: Point3::new(0., 20., 20.),
-  };
   let projection = Perspective3::new(SCREEN_WIDTH / SCREEN_HEIGHT, 3.14 / 2.0, 1.0, 1000.0);
 
   let sdl_context = sdl2::init()?;
@@ -82,10 +69,30 @@ fn main() -> Result<(), String> {
   canvas.set_scale(SCALE, SCALE)?;
   let mut event_pump = sdl_context.event_pump()?;
 
-  // canvas.copy(texture, src, dst)
+  let sphere = Sphere {
+    center: Point3::new(0., 0., -10.),
+    radius: 1.,
+  };
+  let plane = Plane {
+    normal: Unit::new_normalize(Vector3::new(0., 1., 0.)),
+  };
+  let shapes: Vec<&(dyn Shape + Sync)> = vec![&sphere, &plane];
+
+  let mut camera = Point3::new(0., 0., 0.);
+  let light = Ray {
+    direction: Unit::new_normalize(Vector3::new(0., -1., 0.)),
+    origin: Point3::new(0., 20., 20.),
+  };
+
+  let world = World {
+    shapes,
+    camera,
+    light,
+  };
+
   'running: loop {
     let loop_time = Instant::now();
-    let sphere = objects.get_mut(0).unwrap();
+    // let sphere = shapes.get_mut(0).unwrap();
     for event in event_pump.poll_iter() {
       match event {
         Event::Quit { .. }
@@ -94,64 +101,37 @@ fn main() -> Result<(), String> {
           ..
         } => break 'running,
         Event::KeyDown {
-          keycode: Some(Keycode::A),
-          ..
-        } => sphere.move_to(Vector3::new(-1., 0., 0.)),
-        Event::KeyDown {
-          keycode: Some(Keycode::D),
-          ..
-        } => sphere.move_to(Vector3::new(1., 0., 0.)),
-        Event::KeyDown {
-          keycode: Some(Keycode::W),
-          ..
-        } => sphere.move_to(Vector3::new(0., 0., -1.)),
-        Event::KeyDown {
-          keycode: Some(Keycode::S),
-          ..
-        } => sphere.move_to(Vector3::new(0., 0., 1.)),
-        Event::KeyDown {
-          keycode: Some(Keycode::Q),
-          ..
-        } => sphere.move_to(Vector3::new(0., 1., 0.)),
-        Event::KeyDown {
-          keycode: Some(Keycode::E),
-          ..
-        } => sphere.move_to(Vector3::new(0., -1., 0.)),
-        Event::KeyDown {
           keycode: Some(Keycode::Left),
           ..
-        } => eye.x += 1.,
+        } => camera.x += 1.,
         Event::KeyDown {
           keycode: Some(Keycode::Right),
           ..
-        } => eye.x -= 1.,
+        } => camera.x -= 1.,
         Event::KeyDown {
           keycode: Some(Keycode::Up),
           ..
-        } => eye.z -= 1.,
+        } => camera.z -= 1.,
         Event::KeyDown {
           keycode: Some(Keycode::Down),
           ..
-        } => eye.z += 1.,
+        } => camera.z += 1.,
         Event::KeyDown {
           keycode: Some(Keycode::Space),
           ..
         } => {
-          println!("eye: {:?}", eye);
+          println!("camera: {:?}", camera);
           println!("sphere: {:?}", sphere);
         }
         _ => {}
       }
     }
 
-    canvas.set_draw_color(BACKGROUND);
-    canvas.clear();
-
     let grid: Vec<(i32, i32)> = (0..(SCREEN_WIDTH as i32))
       .flat_map(|x| (0..(SCREEN_HEIGHT as i32)).map(move |y| (x, y)))
       .collect();
 
-    let colors: Vec<((i32, i32), Color)> = grid
+    let color_grid: Vec<((i32, i32), Color)> = grid
       .into_par_iter()
       .map(|(x, y)| {
         let screen_point = Point2::new(x as f32, y as f32);
@@ -160,48 +140,15 @@ fn main() -> Result<(), String> {
 
         // Unproject them to view-space.
         let near_view_point = projection.unproject_point(&ndc.near);
-
-        let direction = Unit::new_normalize(near_view_point - eye);
-        let ray = Ray {
-          origin: eye,
-          direction: direction.into_inner(),
-        };
-
-        let cast_info =
-          objects
-            .iter()
-            .map(|obj| obj.cast_ray(&ray))
-            .fold(None, |acc, val| match acc {
-              None => val,
-              Some(acc_info) => match val {
-                None => Some(acc_info),
-                Some(val_info) => {
-                  if acc_info.distance > val_info.distance {
-                    return Some(val_info);
-                  } else {
-                    return Some(acc_info);
-                  }
-                }
-              },
-            });
-        let color = match cast_info {
-          None => BACKGROUND,
-          Some(info) => {
-            // https://www.scratchapixel.com/lessons/3d-basic-rendering/introduction-to-shading/shading-normals
-            let pointing_to_light = Unit::new_normalize(light.origin - info.point_hit);
-
-            let facing_ratio: f32 = info.normal.dot(&pointing_to_light).max(0.);
-            let lightness_percentage = facing_ratio;
-            let color = (255. * lightness_percentage) as u8;
-            Color::RGB(color, color, color)
-          }
-        };
-
+        let color = world.get_color_at_ray(&Ray {
+          direction: Unit::new_normalize(near_view_point - camera),
+          origin: camera,
+        });
         ((x, y), color)
       })
       .collect();
 
-    for ((x, y), color) in colors.into_iter() {
+    for ((x, y), color) in color_grid.into_iter() {
       canvas.set_draw_color(color);
       canvas.draw_point((x as i32, y as i32)).unwrap();
     }
