@@ -2,9 +2,8 @@ extern crate nalgebra as na;
 extern crate sdl2;
 
 use crate::shapes::plane::Plane;
-use crate::shapes::CastInfo;
 use crate::shapes::Shape;
-use na::geometry::{Perspective3, Point2, Point3};
+use na::{Isometry3, Perspective3, Point2, Point3};
 use na::{Unit, Vector3};
 use rayon::prelude::*;
 use sdl2::event::Event;
@@ -20,7 +19,7 @@ mod ray;
 mod shapes;
 mod world;
 use ray::Ray;
-use shapes::{sphere::Sphere, Castable, Movable};
+use shapes::sphere::Sphere;
 use world::World;
 
 type ScreenPoint = Point2<f32>;
@@ -34,11 +33,12 @@ impl From<ScreenPoint> for NDCCoords {
     // Compute two points in clip-space.
     // "ndc" = normalized device coordinates.
     let near_ndc_point = Point3::new(p.x / SCREEN_WIDTH - 0.5, -(p.y / SCREEN_HEIGHT - 0.5), -1.0);
-    // let far_ndc_point  = Point3::new(p.x / SCREEN_WIDTH - 0.5, -(p.y / SCREEN_HEIGHT - 0.5),  1.0);
+    // let far_ndc_point = Point3::new(p.x / SCREEN_WIDTH - 0.5, -(p.y / SCREEN_HEIGHT - 0.5), 1.0);
 
     NDCCoords {
       near: near_ndc_point,
-    } //, far: far_ndc_point }
+      // far: far_ndc_point,
+    }
   }
 }
 impl From<NDCCoords> for ScreenPoint {
@@ -48,8 +48,6 @@ impl From<NDCCoords> for ScreenPoint {
 }
 
 fn main() -> Result<(), String> {
-  let projection = Perspective3::new(SCREEN_WIDTH / SCREEN_HEIGHT, 3.14 / 2.0, 1.0, 1000.0);
-
   let sdl_context = sdl2::init()?;
   let video_subsystem = sdl_context.video()?;
 
@@ -72,23 +70,26 @@ fn main() -> Result<(), String> {
   let sphere = Sphere {
     center: Point3::new(0., 0., -10.),
     radius: 1.,
+    model: Isometry3::new(na::zero(), na::zero()),
   };
   let plane = Plane {
     normal: Unit::new_normalize(Vector3::new(0., 1., 0.)),
   };
   let shapes: Vec<&(dyn Shape + Sync)> = vec![&sphere, &plane];
 
-  let mut camera = Point3::new(0., 0., 0.);
   let light = Ray {
     direction: Unit::new_normalize(Vector3::new(0., -1., 0.)),
     origin: Point3::new(0., 20., 20.),
   };
 
-  let world = World {
-    shapes,
-    camera,
-    light,
-  };
+  let world = World { shapes, light };
+
+  // A perspective projection.
+  let projection = Perspective3::new(SCREEN_WIDTH / SCREEN_HEIGHT, 3.14 / 2.0, 1.0, 1000.0);
+
+  let eye = Point3::new(0.0, 0.0, 0.0);
+  let target = Point3::new(0.0, 0.0, -1.0);
+  let view = Isometry3::look_at_rh(&eye, &target, &Vector3::y());
 
   'running: loop {
     let loop_time = Instant::now();
@@ -100,37 +101,18 @@ fn main() -> Result<(), String> {
           keycode: Some(Keycode::Escape),
           ..
         } => break 'running,
-        Event::KeyDown {
-          keycode: Some(Keycode::Left),
-          ..
-        } => camera.x += 1.,
-        Event::KeyDown {
-          keycode: Some(Keycode::Right),
-          ..
-        } => camera.x -= 1.,
-        Event::KeyDown {
-          keycode: Some(Keycode::Up),
-          ..
-        } => camera.z -= 1.,
-        Event::KeyDown {
-          keycode: Some(Keycode::Down),
-          ..
-        } => camera.z += 1.,
-        Event::KeyDown {
-          keycode: Some(Keycode::Space),
-          ..
-        } => {
-          println!("camera: {:?}", camera);
-          println!("sphere: {:?}", sphere);
-        }
         _ => {}
       }
     }
 
+    // Our camera looks toward the point (1.0, 0.0, 0.0).
+
     let grid: Vec<(i32, i32)> = (0..(SCREEN_WIDTH as i32))
       .flat_map(|x| (0..(SCREEN_HEIGHT as i32)).map(move |y| (x, y)))
       .collect();
-
+    // let ndc_to_world = projection.inverse();
+    // let world_to_camera: Matrix4<f32> = view.inverse().into();
+    // let ndc_to_camera = ndc_to_world * world_to_camera;
     let color_grid: Vec<((i32, i32), Color)> = grid
       .into_par_iter()
       .map(|(x, y)| {
@@ -139,10 +121,13 @@ fn main() -> Result<(), String> {
         let ndc: NDCCoords = screen_point.into();
 
         // Unproject them to view-space.
-        let near_view_point = projection.unproject_point(&ndc.near);
+        let world_point = projection.unproject_point(&ndc.near);
+
+        let camera_point = view.inverse_transform_point(&world_point);
+
         let color = world.get_color_at_ray(&Ray {
-          direction: Unit::new_normalize(near_view_point - camera),
-          origin: camera,
+          direction: Unit::new_normalize(camera_point - eye),
+          origin: eye,
         });
         ((x, y), color)
       })

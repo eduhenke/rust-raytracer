@@ -1,14 +1,14 @@
 use super::{super::ray::Ray, CastInfo};
 use super::{Castable, Movable};
 use crate::shapes::Shape;
-use na::{Point3, Unit};
+use na::{Isometry3, Point3, Unit};
 use nalgebra::Vector3;
-use sdl2::pixels::Color;
 
 #[derive(Debug, Copy, Clone)]
 pub struct Sphere {
   pub center: Point3<f32>,
   pub radius: f32,
+  pub model: Isometry3<f32>,
 }
 
 // simplified to either have 0 roots or 2(instead of 0, 1, 2)
@@ -71,4 +71,11 @@ impl Movable for Sphere {
   }
 }
 
-impl Shape for Sphere {}
+impl Shape for Sphere {
+  fn model_matrix(&self) -> Isometry3<f32> {
+    self.model
+  }
+  fn inverse_model_matrix(&self) -> Isometry3<f32> {
+    self.model
+  }
+}
