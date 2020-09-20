@@ -6,6 +6,7 @@ pub mod sphere;
 
 pub struct CastInfo {
   pub normal: Unit<Vector3<f32>>,
+  pub pointing_to_viewer: Unit<Vector3<f32>>,
   pub point_hit: Point3<f32>,
   pub distance: f32,
 }

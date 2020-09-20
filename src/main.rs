@@ -11,9 +11,9 @@ use sdl2::keyboard::Keycode;
 use sdl2::pixels::Color;
 use std::time::Instant;
 
-const SCREEN_WIDTH: f32 = 240.0;
-const SCREEN_HEIGHT: f32 = 180.0;
-const SCALE: f32 = 2.5;
+const SCREEN_WIDTH: f32 = 800.0;
+const SCREEN_HEIGHT: f32 = 600.0;
+const SCALE: f32 = 1.0;
 
 mod ray;
 mod shapes;
@@ -77,12 +77,19 @@ fn main() -> Result<(), String> {
   };
   let shapes: Vec<&(dyn Shape + Sync)> = vec![&sphere, &plane];
 
-  let light = Ray {
-    direction: Unit::new_normalize(Vector3::new(0., -1., 0.)),
-    origin: Point3::new(0., 20., 20.),
+  let world = World {
+    shapes,
+    lights: vec![
+      Ray {
+        direction: Unit::new_normalize(Vector3::new(0., -1., 0.)),
+        origin: Point3::new(-20., 20., 20.),
+      },
+      Ray {
+        direction: Unit::new_normalize(Vector3::new(0., -1., 0.)),
+        origin: Point3::new(100., 10., 0.),
+      },
+    ],
   };
-
-  let world = World { shapes, light };
 
   // A perspective projection.
   let projection = Perspective3::new(SCREEN_WIDTH / SCREEN_HEIGHT, 3.14 / 2.0, 1.0, 1000.0);

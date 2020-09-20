@@ -14,10 +14,12 @@ impl Castable for Plane {
     if self.normal.into_inner().dot(&ray.direction) > 0. {
       return None;
     }
+    let point_hit = Point3::new(0., 0., 0.);
     Some(CastInfo {
       distance: 5e9,
       normal: self.normal,
-      point_hit: Point3::new(0., 0., 0.),
+      pointing_to_viewer: Unit::new_normalize(ray.origin - point_hit),
+      point_hit,
     })
   }
 }
