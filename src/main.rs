@@ -5,6 +5,7 @@ use crate::color::Color;
 use crate::shapes::plane::Plane;
 use crate::shapes::Shape;
 use light::PointLight;
+use material::Material;
 use na::{Isometry3, Perspective3, Point2, Point3};
 use na::{Unit, Vector3};
 use rayon::prelude::*;
@@ -14,10 +15,11 @@ use std::{f32::consts::PI, time::Instant};
 
 const SCREEN_WIDTH: f32 = 200.0;
 const SCREEN_HEIGHT: f32 = 160.0;
-const SCALE: f32 = 2.5;
+const SCALE: f32 = 1.5;
 
 mod color;
 mod light;
+mod material;
 mod ray;
 mod shapes;
 mod world;
@@ -70,16 +72,44 @@ fn main() -> Result<(), String> {
   canvas.set_scale(SCALE, SCALE)?;
   let mut event_pump = sdl_context.event_pump()?;
 
-  let sphere = Sphere::new(Point3::new(0., 1., -6.), 1.);
-  let sphere_b = Sphere::new(Point3::new(5., 2., -12.), 2.);
-  let sphere_c = Sphere::new(Point3::new(1.8, 1., -6.5), 0.5);
+  let shiny_material = Material {
+    albedo: 1.0,
+    color: Color::RGB(0, 0, 0), // TODO
+    specular_n: 30,
+    k_diffuse: 0.7,
+    k_specular: 0.3,
+  };
+  let opaque_material = Material {
+    albedo: 1.0,
+    color: Color::RGB(0, 0, 0), // TODO
+    specular_n: 1,
+    k_diffuse: 1.0,
+    k_specular: 0.0,
+  };
+
+  let sphere = Sphere::new(Point3::new(-2., 1., -6.), 1., shiny_material);
+  let sphere_b = Sphere::new(Point3::new(5., 2., -12.), 2., shiny_material);
+  let sphere_c = Sphere::new(Point3::new(1., 1., -6.5), 0.5, opaque_material);
   let plane = Plane::new(
     Unit::new_normalize(Vector3::new(0., 1., 0.)),
-    Point3::new(1., 0., -9.),
-    (None, Some(5.0)),
-    Vector3::y() * PI / 6.0,
+    Point3::new(1., 0., -30.),
+    (None, None),
+    (Vector3::x()) * PI / 2.0,
+    shiny_material,
   );
-  let shapes: Vec<&(dyn Shape + Sync)> = vec![&sphere, &sphere_b, &sphere_c, &plane];
+  let plane_b = Plane::new(
+    Unit::new_normalize(Vector3::new(0., 1., 0.)),
+    Point3::new(0., 0., 0.),
+    (None, None),
+    na::zero(),
+    opaque_material,
+  );
+  let shapes: Vec<&(dyn Shape + Sync)> = vec![
+    &sphere, // &sphere_b,
+    // &sphere_c,
+    // &plane,
+    &plane_b,
+  ];
 
   let world = World {
     shapes,

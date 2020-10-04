@@ -1,3 +1,5 @@
+use crate::material::Material;
+
 use super::ray::Ray;
 use na::{Isometry3, Point3, Unit, Vector3};
 use std::fmt::Debug;
@@ -10,6 +12,7 @@ pub struct CastInfo<'a> {
   pub point_hit: Point3<f32>,
   pub distance: f32,
   pub casted: &'a dyn Castable,
+  pub material: Material,
 }
 
 impl<'a> CastInfo<'a> {
@@ -20,6 +23,7 @@ impl<'a> CastInfo<'a> {
       pointing_to_viewer: Unit::new_unchecked(isometry.transform_vector(&self.pointing_to_viewer)),
       distance: self.distance,
       casted: self.casted,
+      material: self.material,
     }
   }
 }
@@ -45,8 +49,6 @@ pub fn get_nearest_cast_info<'a>(
 
 pub trait Castable {
   fn cast_ray(&self, ray: &Ray) -> Option<CastInfo>;
-  fn albedo(&self) -> f32;
-  fn specular_n(&self) -> i32;
 }
 
 pub trait Movable {

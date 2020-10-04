@@ -1,6 +1,6 @@
 use super::{super::ray::Ray, CastInfo};
 use super::{Castable, Movable};
-use crate::shapes::Shape;
+use crate::{material::Material, shapes::Shape};
 use na::{Isometry3, Point3, Unit};
 use nalgebra::Vector3;
 
@@ -8,16 +8,19 @@ use nalgebra::Vector3;
 pub struct Sphere {
   center: Point3<f32>,
   radius: f32,
+  material: Material,
+
   world_to_object: Isometry3<f32>,
   object_to_world: Isometry3<f32>,
 }
 
 impl Sphere {
-  pub fn new(center: Point3<f32>, radius: f32) -> Sphere {
+  pub fn new(center: Point3<f32>, radius: f32, material: Material) -> Sphere {
     let model_matrix = Isometry3::new(center.coords, na::zero());
     Sphere {
       center: Point3::new(0., 0., 0.),
       radius: radius,
+      material: material,
       object_to_world: model_matrix,
       world_to_object: model_matrix.inverse(),
     }
@@ -48,12 +51,6 @@ impl Sphere {
 }
 
 impl Castable for Sphere {
-  fn albedo(&self) -> f32 {
-    return 1.0;
-  }
-  fn specular_n(&self) -> i32 {
-    return 20;
-  }
   fn cast_ray(&self, world_ray: &Ray) -> Option<CastInfo> {
     let ray = &world_ray.apply_isometry(self.world_to_object);
     let a = self.find_roots_intersection(ray);
@@ -82,6 +79,7 @@ impl Castable for Sphere {
             pointing_to_viewer: Unit::new_normalize(ray.origin - point_hit),
             distance: t,
             casted: self,
+            material: self.material,
           }
           .apply_isometry(self.object_to_world),
         )

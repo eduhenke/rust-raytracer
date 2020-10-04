@@ -1,7 +1,7 @@
 use super::Castable;
 use super::{super::ray::Ray, CastInfo};
-use crate::shapes::Movable;
 use crate::shapes::Shape;
+use crate::{material::Material, shapes::Movable};
 use na::{Isometry3, Point3, Unit, Vector3};
 
 #[derive(Debug, Copy, Clone)]
@@ -9,6 +9,8 @@ pub struct Plane {
   normal: Unit<Vector3<f32>>,
   center: Point3<f32>,
   size: (Option<f32>, Option<f32>),
+  material: Material,
+
   world_to_object: Isometry3<f32>,
   object_to_world: Isometry3<f32>,
 }
@@ -19,6 +21,7 @@ impl Plane {
     center: Point3<f32>,
     size: (Option<f32>, Option<f32>),
     rotation: Vector3<f32>,
+    material: Material,
   ) -> Plane {
     let model_matrix = Isometry3::new(center.coords, rotation);
     Plane {
@@ -27,17 +30,12 @@ impl Plane {
       world_to_object: model_matrix.inverse(),
       normal: normal,
       size: size,
+      material: material,
     }
   }
 }
 
 impl Castable for Plane {
-  fn albedo(&self) -> f32 {
-    return 1.0;
-  }
-  fn specular_n(&self) -> i32 {
-    return 5;
-  }
   // https://www.scratchapixel.com/lessons/3d-basic-rendering/minimal-ray-tracer-rendering-simple-shapes/ray-plane-and-ray-disk-intersection
   fn cast_ray(&self, world_ray: &Ray) -> Option<CastInfo> {
     let ray = world_ray.apply_isometry(self.world_to_object);
@@ -77,6 +75,7 @@ impl Castable for Plane {
         pointing_to_viewer: Unit::new_normalize(ray.origin - point_hit),
         point_hit,
         casted: self,
+        material: self.material,
       }
       .apply_isometry(self.object_to_world),
     )

@@ -27,8 +27,6 @@ impl<'a> World<'a> {
     match cast_info {
       None => BACKGROUND,
       Some(info) => {
-        let kd = 0.8;
-        let ks = 1. - kd;
         let mut specular = Color::RGB(0, 0, 0);
         let mut diffuse = Color::RGB(0, 0, 0);
         let nudge = info.normal.into_inner() * 0.01;
@@ -70,8 +68,8 @@ impl<'a> World<'a> {
               .into_inner()
               .dot(&reflected_light)
               .max(0.)
-              .powi(info.casted.specular_n());
-          diffuse += light.color * (info.casted.albedo() * light_intensity_at_point * facing_ratio);
+              .powi(info.material.specular_n);
+          diffuse += light.color * (info.material.albedo * light_intensity_at_point * facing_ratio);
         }
         if reflect_depth < MAX_REFLECT_DEPTH {
           let reflected_direction = reflect(&info.pointing_to_viewer, &info.normal);
@@ -83,7 +81,7 @@ impl<'a> World<'a> {
             reflect_depth + 1,
           );
         }
-        let color = diffuse * kd + specular * ks;
+        let color = diffuse * info.material.k_diffuse + specular * info.material.k_specular;
         color
       }
     }
