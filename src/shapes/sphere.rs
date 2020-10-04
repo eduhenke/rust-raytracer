@@ -60,6 +60,7 @@ impl Castable for Sphere {
           point_hit: point_hit,
           pointing_to_viewer: Unit::new_normalize(ray.origin - point_hit),
           distance: t,
+          albedo: 1.,
         })
       }
     }

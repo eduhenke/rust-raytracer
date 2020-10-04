@@ -1,20 +1,23 @@
 extern crate nalgebra as na;
 extern crate sdl2;
 
+use crate::color::Color;
 use crate::shapes::plane::Plane;
 use crate::shapes::Shape;
+use light::PointLight;
 use na::{Isometry3, Perspective3, Point2, Point3};
 use na::{Unit, Vector3};
 use rayon::prelude::*;
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
-use sdl2::pixels::Color;
 use std::time::Instant;
 
-const SCREEN_WIDTH: f32 = 800.0;
-const SCREEN_HEIGHT: f32 = 600.0;
-const SCALE: f32 = 1.0;
+const SCREEN_WIDTH: f32 = 240.0;
+const SCREEN_HEIGHT: f32 = 180.0;
+const SCALE: f32 = 2.5;
 
+mod color;
+mod light;
 mod ray;
 mod shapes;
 mod world;
@@ -68,34 +71,47 @@ fn main() -> Result<(), String> {
   let mut event_pump = sdl_context.event_pump()?;
 
   let sphere = Sphere {
-    center: Point3::new(0., 0., -10.),
+    center: Point3::new(0., 1., -10.),
     radius: 1.,
     model: Isometry3::new(na::zero(), na::zero()),
   };
   let plane = Plane {
     normal: Unit::new_normalize(Vector3::new(0., 1., 0.)),
+    center: Point3::new(0., 0., 0.),
   };
   let shapes: Vec<&(dyn Shape + Sync)> = vec![&sphere, &plane];
 
   let world = World {
     shapes,
     lights: vec![
-      Ray {
-        direction: Unit::new_normalize(Vector3::new(0., -1., 0.)),
-        origin: Point3::new(-20., 20., 20.),
+      PointLight {
+        ray: Ray {
+          direction: Unit::new_normalize(Vector3::new(0., -1., 0.)),
+          origin: Point3::new(-5., 2., -12.),
+        },
+        color: Color::RGB(255, 100, 0),
+        intensity: 1.0,
       },
-      Ray {
-        direction: Unit::new_normalize(Vector3::new(0., -1., 0.)),
-        origin: Point3::new(100., 10., 0.),
+      PointLight {
+        ray: Ray {
+          direction: Unit::new_normalize(Vector3::new(0., -1., 0.)),
+          origin: Point3::new(2., 2., -5.),
+        },
+        color: Color::RGB(0, 255, 255),
+        intensity: 1.0,
       },
+      // Ray {
+      //   direction: Unit::new_normalize(Vector3::new(0., -1., 1.)),
+      //   origin: Point3::new(0., 10., -1.),
+      // },
     ],
   };
 
   // A perspective projection.
   let projection = Perspective3::new(SCREEN_WIDTH / SCREEN_HEIGHT, 3.14 / 2.0, 1.0, 1000.0);
 
-  let eye = Point3::new(0.0, 0.0, 0.0);
-  let target = Point3::new(0.0, 0.0, -1.0);
+  let eye = Point3::new(0.0, 1.0, 0.0);
+  let target = Point3::new(0.0, 0.8, -1.0);
   let view = Isometry3::look_at_rh(&eye, &target, &Vector3::y());
 
   'running: loop {
