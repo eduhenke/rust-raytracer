@@ -9,6 +9,7 @@ pub struct Plane {
   pub normal: Unit<Vector3<f32>>,
   pub center: Point3<f32>,
   pub size: (Option<f32>, Option<f32>),
+  pub model: Isometry3<f32>,
 }
 
 impl Castable for Plane {
@@ -19,7 +20,8 @@ impl Castable for Plane {
     return 5;
   }
   // https://www.scratchapixel.com/lessons/3d-basic-rendering/minimal-ray-tracer-rendering-simple-shapes/ray-plane-and-ray-disk-intersection
-  fn cast_ray(&self, ray: &Ray) -> Option<CastInfo> {
+  fn cast_ray(&self, world_ray: &Ray) -> Option<CastInfo> {
+    let ray = world_ray.apply_isometry(self.inverse_model_matrix());
     let denominator = self.normal.into_inner().dot(&ray.direction);
     if denominator > 0. {
       return None;
@@ -30,10 +32,10 @@ impl Castable for Plane {
     }
 
     let point_hit = ray.origin + (t * ray.direction.into_inner());
-    let point_hit_plane_center = point_hit.to_homogeneous() + self.center.to_homogeneous();
+    let distance_to_center = point_hit.to_homogeneous() - self.center.to_homogeneous();
     match self.size.0 {
       Some(x_) => {
-        let x = point_hit_plane_center.x;
+        let x = distance_to_center.x;
         if x.abs() > x_ {
           return None;
         }
@@ -42,20 +44,23 @@ impl Castable for Plane {
     }
     match self.size.1 {
       Some(z_) => {
-        let z = point_hit_plane_center.z;
+        let z = distance_to_center.z;
         if z.abs() > z_ {
           return None;
         }
       }
       None => {}
     }
-    Some(CastInfo {
-      distance: t,
-      normal: self.normal,
-      pointing_to_viewer: Unit::new_normalize(ray.origin - point_hit),
-      point_hit,
-      casted: self,
-    })
+    Some(
+      CastInfo {
+        distance: t,
+        normal: self.normal,
+        pointing_to_viewer: Unit::new_normalize(ray.origin - point_hit),
+        point_hit,
+        casted: self,
+      }
+      .apply_isometry(self.model),
+    )
   }
 }
 
@@ -67,9 +72,9 @@ impl Movable for Plane {
 
 impl Shape for Plane {
   fn model_matrix(&self) -> Isometry3<f32> {
-    Isometry3::new(na::zero(), na::zero())
+    self.model
   }
   fn inverse_model_matrix(&self) -> Isometry3<f32> {
-    Isometry3::new(na::zero(), na::zero())
+    self.model.inverse()
   }
 }

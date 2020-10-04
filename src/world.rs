@@ -1,7 +1,7 @@
 use crate::shapes::Shape;
 use crate::{color::Color, light::PointLight};
 use crate::{ray::Ray, shapes::get_nearest_cast_info};
-use na::Unit;
+use na::{Unit, Vector3};
 use std::f32::consts::PI;
 
 #[derive(Debug)]
@@ -11,21 +11,18 @@ pub struct World<'a> {
 }
 
 const BACKGROUND: Color = Color::RGB(50, 0, 50);
+const MAX_REFLECT_DEPTH: i32 = 2;
+
+fn reflect(v: &Vector3<f32>, n: &Unit<Vector3<f32>>) -> Vector3<f32> {
+  2.0 * n.dot(v) * n.into_inner() - v
+}
 
 impl<'a> World<'a> {
-  pub fn get_color_at_ray(&self, ray: &Ray) -> Color {
+  pub fn get_color_at_ray(&self, ray: &Ray, reflect_depth: i32) -> Color {
     let cast_info = self
       .shapes
       .iter()
-      .map(|obj| {
-        let new_origin = obj.inverse_model_matrix().transform_point(&ray.origin);
-        let new_direction = obj.inverse_model_matrix().transform_vector(&ray.direction);
-
-        obj.cast_ray(&Ray {
-          origin: new_origin,
-          direction: Unit::new_normalize(new_direction),
-        })
-      })
+      .map(|obj| obj.cast_ray(&ray))
       .fold(None, get_nearest_cast_info);
     match cast_info {
       None => BACKGROUND,
@@ -43,8 +40,8 @@ impl<'a> World<'a> {
           let point_to_light_crosses_object = self
             .shapes
             .iter()
-            .map(|s| {
-              s.cast_ray(&Ray {
+            .map(|obj| {
+              obj.cast_ray(&Ray {
                 origin: info.point_hit + nudge,
                 direction: pointing_to_light,
               })
@@ -60,8 +57,8 @@ impl<'a> World<'a> {
             None => {}
           }
           let facing_ratio: f32 = info.normal.dot(&pointing_to_light).max(0.);
-          let reflected_light =
-            ((2.0 * facing_ratio) * info.normal.into_inner()) - pointing_to_light.into_inner();
+          let reflected_light = reflect(&pointing_to_light.into_inner(), &info.normal);
+
           // intensity at point hit
           let light_intensity_at_point =
             light.intensity / (4. * PI * distance_to_light.norm_squared());
@@ -75,6 +72,16 @@ impl<'a> World<'a> {
               .max(0.)
               .powi(info.casted.specular_n());
           diffuse += light.color * (info.casted.albedo() * light_intensity_at_point * facing_ratio);
+        }
+        if reflect_depth < MAX_REFLECT_DEPTH {
+          let reflected_direction = reflect(&info.pointing_to_viewer, &info.normal);
+          specular += self.get_color_at_ray(
+            &Ray {
+              direction: Unit::new_normalize(reflected_direction),
+              origin: info.point_hit + nudge,
+            },
+            reflect_depth + 1,
+          );
         }
         let color = diffuse * kd + specular * ks;
         color

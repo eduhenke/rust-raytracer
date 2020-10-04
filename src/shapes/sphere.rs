@@ -41,7 +41,8 @@ impl Castable for Sphere {
   fn specular_n(&self) -> i32 {
     return 20;
   }
-  fn cast_ray(&self, ray: &Ray) -> Option<CastInfo> {
+  fn cast_ray(&self, world_ray: &Ray) -> Option<CastInfo> {
+    let ray = &world_ray.apply_isometry(self.inverse_model_matrix());
     let a = self.find_roots_intersection(ray);
     match a {
       None => None,
@@ -61,13 +62,16 @@ impl Castable for Sphere {
 
         let normal = Unit::new_normalize(point_hit - self.center);
 
-        Some(CastInfo {
-          normal: normal,
-          point_hit: point_hit,
-          pointing_to_viewer: Unit::new_normalize(ray.origin - point_hit),
-          distance: t,
-          casted: self,
-        })
+        Some(
+          CastInfo {
+            normal: normal,
+            point_hit: point_hit,
+            pointing_to_viewer: Unit::new_normalize(ray.origin - point_hit),
+            distance: t,
+            casted: self,
+          }
+          .apply_isometry(self.model),
+        )
       }
     }
   }
@@ -84,6 +88,6 @@ impl Shape for Sphere {
     self.model
   }
   fn inverse_model_matrix(&self) -> Isometry3<f32> {
-    self.model
+    self.model.inverse()
   }
 }

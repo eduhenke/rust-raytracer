@@ -12,6 +12,18 @@ pub struct CastInfo<'a> {
   pub casted: &'a dyn Castable,
 }
 
+impl<'a> CastInfo<'a> {
+  pub fn apply_isometry(&self, isometry: Isometry3<f32>) -> CastInfo<'a> {
+    CastInfo {
+      normal: Unit::new_unchecked(isometry.transform_vector(&self.normal.into_inner())),
+      point_hit: isometry.transform_point(&self.point_hit),
+      pointing_to_viewer: Unit::new_unchecked(isometry.transform_vector(&self.pointing_to_viewer)),
+      distance: self.distance,
+      casted: self.casted,
+    }
+  }
+}
+
 pub fn get_nearest_cast_info<'a>(
   a: Option<CastInfo<'a>>,
   b: Option<CastInfo<'a>>,

@@ -10,11 +10,11 @@ use na::{Unit, Vector3};
 use rayon::prelude::*;
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
-use std::time::Instant;
+use std::{f32::consts::PI, time::Instant};
 
-const SCREEN_WIDTH: f32 = 800.0;
-const SCREEN_HEIGHT: f32 = 600.0;
-const SCALE: f32 = 1.0;
+const SCREEN_WIDTH: f32 = 200.0;
+const SCREEN_HEIGHT: f32 = 160.0;
+const SCALE: f32 = 2.5;
 
 mod color;
 mod light;
@@ -71,14 +71,14 @@ fn main() -> Result<(), String> {
   let mut event_pump = sdl_context.event_pump()?;
 
   let sphere = Sphere {
-    center: Point3::new(0., 1., -6.),
+    center: Point3::new(0., 0., 0.),
     radius: 1.,
-    model: Isometry3::new(na::zero(), na::zero()),
+    model: Isometry3::new(Vector3::new(0., 1., -6.), na::zero()),
   };
   let sphere_b = Sphere {
-    center: Point3::new(5., 2., -12.),
+    center: Point3::new(0., 0., 0.),
     radius: 2.,
-    model: Isometry3::new(na::zero(), na::zero()),
+    model: Isometry3::new(Vector3::new(5., 2., -12.), na::zero()),
   };
   let sphere_c = Sphere {
     center: Point3::new(1.8, 1., -6.5),
@@ -87,8 +87,10 @@ fn main() -> Result<(), String> {
   };
   let plane = Plane {
     normal: Unit::new_normalize(Vector3::new(0., 1., 0.)),
-    center: Point3::new(0., 0., 12.),
-    size: (None, None),
+    center: Point3::new(0., 0., 0.),
+    // size: (None, None),
+    size: (Some(5.0), Some(5.0)),
+    model: Isometry3::new(Vector3::new(1., 0., -9.), Vector3::y() * PI / 6.0),
   };
   let shapes: Vec<&(dyn Shape + Sync)> = vec![&sphere, &sphere_b, &sphere_c, &plane];
 
@@ -155,10 +157,13 @@ fn main() -> Result<(), String> {
 
         let camera_point = view.inverse_transform_point(&world_point);
 
-        let color = world.get_color_at_ray(&Ray {
-          direction: Unit::new_normalize(camera_point - eye),
-          origin: eye,
-        });
+        let color = world.get_color_at_ray(
+          &Ray {
+            direction: Unit::new_normalize(camera_point - eye),
+            origin: eye,
+          },
+          0,
+        );
         ((x, y), color)
       })
       .collect();
