@@ -30,6 +30,7 @@ impl Castable for Plane {
       pointing_to_viewer: Unit::new_normalize(ray.origin - point_hit),
       point_hit,
       albedo: 1.,
+      casted: self,
     })
   }
 }

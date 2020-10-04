@@ -12,9 +12,9 @@ use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
 use std::time::Instant;
 
-const SCREEN_WIDTH: f32 = 240.0;
-const SCREEN_HEIGHT: f32 = 180.0;
-const SCALE: f32 = 2.5;
+const SCREEN_WIDTH: f32 = 800.0;
+const SCREEN_HEIGHT: f32 = 600.0;
+const SCALE: f32 = 1.0;
 
 mod color;
 mod light;
@@ -71,7 +71,7 @@ fn main() -> Result<(), String> {
   let mut event_pump = sdl_context.event_pump()?;
 
   let sphere = Sphere {
-    center: Point3::new(0., 1., -10.),
+    center: Point3::new(0., 1., -6.),
     radius: 1.,
     model: Isometry3::new(na::zero(), na::zero()),
   };
@@ -87,7 +87,7 @@ fn main() -> Result<(), String> {
       PointLight {
         ray: Ray {
           direction: Unit::new_normalize(Vector3::new(0., -1., 0.)),
-          origin: Point3::new(-5., 2., -12.),
+          origin: Point3::new(-5., 8., -5.),
         },
         color: Color::RGB(255, 100, 0),
         intensity: 1.0,
@@ -95,14 +95,18 @@ fn main() -> Result<(), String> {
       PointLight {
         ray: Ray {
           direction: Unit::new_normalize(Vector3::new(0., -1., 0.)),
-          origin: Point3::new(2., 2., -5.),
+          origin: Point3::new(2., 10., -12.),
         },
         color: Color::RGB(0, 255, 255),
         intensity: 1.0,
       },
-      // Ray {
-      //   direction: Unit::new_normalize(Vector3::new(0., -1., 1.)),
-      //   origin: Point3::new(0., 10., -1.),
+      // PointLight {
+      //   ray: Ray {
+      //     direction: Unit::new_normalize(Vector3::new(0., -1., -1.)),
+      //     origin: Point3::new(0.2, 6., 1.),
+      //   },
+      //   color: Color::RGB(255, 255, 255),
+      //   intensity: 1.0,
       // },
     ],
   };

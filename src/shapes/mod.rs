@@ -4,12 +4,32 @@ use std::fmt::Debug;
 pub mod plane;
 pub mod sphere;
 
-pub struct CastInfo {
+pub struct CastInfo<'a> {
   pub normal: Unit<Vector3<f32>>,
   pub pointing_to_viewer: Unit<Vector3<f32>>,
   pub point_hit: Point3<f32>,
   pub distance: f32,
   pub albedo: f32,
+  pub casted: &'a dyn Castable,
+}
+
+pub fn get_nearest_cast_info<'a>(
+  a: Option<CastInfo<'a>>,
+  b: Option<CastInfo<'a>>,
+) -> Option<CastInfo<'a>> {
+  match a {
+    None => b,
+    Some(a_info) => match b {
+      None => Some(a_info),
+      Some(b_info) => {
+        if a_info.distance > b_info.distance {
+          return Some(b_info);
+        } else {
+          return Some(a_info);
+        }
+      }
+    },
+  }
 }
 
 pub trait Castable {

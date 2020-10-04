@@ -1,6 +1,6 @@
-use crate::ray::Ray;
 use crate::shapes::Shape;
 use crate::{color::Color, light::PointLight};
+use crate::{ray::Ray, shapes::get_nearest_cast_info};
 use na::Unit;
 use std::f32::consts::PI;
 
@@ -26,19 +26,7 @@ impl<'a> World<'a> {
           direction: Unit::new_normalize(new_direction),
         })
       })
-      .fold(None, |acc, val| match acc {
-        None => val,
-        Some(acc_info) => match val {
-          None => Some(acc_info),
-          Some(val_info) => {
-            if acc_info.distance > val_info.distance {
-              return Some(val_info);
-            } else {
-              return Some(acc_info);
-            }
-          }
-        },
-      });
+      .fold(None, get_nearest_cast_info);
     match cast_info {
       None => BACKGROUND,
       Some(info) => {
@@ -50,6 +38,20 @@ impl<'a> World<'a> {
         for light in &self.lights {
           // https://www.scratchapixel.com/lessons/3d-basic-rendering/introduction-to-shading/shading-normals
           let pointing_to_light = Unit::new_normalize(light.ray.origin - info.point_hit);
+          let nudge = info.normal.into_inner() * 0.01;
+          let point_to_light_crosses_object = self
+            .shapes
+            .iter()
+            .map(|s| {
+              s.cast_ray(&Ray {
+                origin: info.point_hit + nudge,
+                direction: pointing_to_light,
+              })
+            })
+            .fold(None, get_nearest_cast_info);
+          if point_to_light_crosses_object.is_some() {
+            continue;
+          }
           let facing_ratio: f32 = info.normal.dot(&pointing_to_light).max(0.);
           let reflected_light =
             ((2.0 * facing_ratio) * info.normal.into_inner()) - pointing_to_light.into_inner();
