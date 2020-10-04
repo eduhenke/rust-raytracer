@@ -6,9 +6,22 @@ use nalgebra::Vector3;
 
 #[derive(Debug, Copy, Clone)]
 pub struct Sphere {
-  pub center: Point3<f32>,
-  pub radius: f32,
-  pub model: Isometry3<f32>,
+  center: Point3<f32>,
+  radius: f32,
+  world_to_object: Isometry3<f32>,
+  object_to_world: Isometry3<f32>,
+}
+
+impl Sphere {
+  pub fn new(center: Point3<f32>, radius: f32) -> Sphere {
+    let model_matrix = Isometry3::new(center.coords, na::zero());
+    Sphere {
+      center: Point3::new(0., 0., 0.),
+      radius: radius,
+      object_to_world: model_matrix,
+      world_to_object: model_matrix.inverse(),
+    }
+  }
 }
 
 // simplified to either have 0 roots or 2(instead of 0, 1, 2)
@@ -42,7 +55,7 @@ impl Castable for Sphere {
     return 20;
   }
   fn cast_ray(&self, world_ray: &Ray) -> Option<CastInfo> {
-    let ray = &world_ray.apply_isometry(self.inverse_model_matrix());
+    let ray = &world_ray.apply_isometry(self.world_to_object);
     let a = self.find_roots_intersection(ray);
     match a {
       None => None,
@@ -70,7 +83,7 @@ impl Castable for Sphere {
             distance: t,
             casted: self,
           }
-          .apply_isometry(self.model),
+          .apply_isometry(self.object_to_world),
         )
       }
     }
@@ -83,11 +96,4 @@ impl Movable for Sphere {
   }
 }
 
-impl Shape for Sphere {
-  fn model_matrix(&self) -> Isometry3<f32> {
-    self.model
-  }
-  fn inverse_model_matrix(&self) -> Isometry3<f32> {
-    self.model.inverse()
-  }
-}
+impl Shape for Sphere {}

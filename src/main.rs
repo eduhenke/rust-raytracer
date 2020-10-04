@@ -70,28 +70,15 @@ fn main() -> Result<(), String> {
   canvas.set_scale(SCALE, SCALE)?;
   let mut event_pump = sdl_context.event_pump()?;
 
-  let sphere = Sphere {
-    center: Point3::new(0., 0., 0.),
-    radius: 1.,
-    model: Isometry3::new(Vector3::new(0., 1., -6.), na::zero()),
-  };
-  let sphere_b = Sphere {
-    center: Point3::new(0., 0., 0.),
-    radius: 2.,
-    model: Isometry3::new(Vector3::new(5., 2., -12.), na::zero()),
-  };
-  let sphere_c = Sphere {
-    center: Point3::new(1.8, 1., -6.5),
-    radius: 0.5,
-    model: Isometry3::new(na::zero(), na::zero()),
-  };
-  let plane = Plane {
-    normal: Unit::new_normalize(Vector3::new(0., 1., 0.)),
-    center: Point3::new(0., 0., 0.),
-    // size: (None, None),
-    size: (Some(5.0), Some(5.0)),
-    model: Isometry3::new(Vector3::new(1., 0., -9.), Vector3::y() * PI / 6.0),
-  };
+  let sphere = Sphere::new(Point3::new(0., 1., -6.), 1.);
+  let sphere_b = Sphere::new(Point3::new(5., 2., -12.), 2.);
+  let sphere_c = Sphere::new(Point3::new(1.8, 1., -6.5), 0.5);
+  let plane = Plane::new(
+    Unit::new_normalize(Vector3::new(0., 1., 0.)),
+    Point3::new(1., 0., -9.),
+    (None, Some(5.0)),
+    Vector3::y() * PI / 6.0,
+  );
   let shapes: Vec<&(dyn Shape + Sync)> = vec![&sphere, &sphere_b, &sphere_c, &plane];
 
   let world = World {

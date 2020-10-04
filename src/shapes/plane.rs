@@ -6,10 +6,29 @@ use na::{Isometry3, Point3, Unit, Vector3};
 
 #[derive(Debug, Copy, Clone)]
 pub struct Plane {
-  pub normal: Unit<Vector3<f32>>,
-  pub center: Point3<f32>,
-  pub size: (Option<f32>, Option<f32>),
-  pub model: Isometry3<f32>,
+  normal: Unit<Vector3<f32>>,
+  center: Point3<f32>,
+  size: (Option<f32>, Option<f32>),
+  world_to_object: Isometry3<f32>,
+  object_to_world: Isometry3<f32>,
+}
+
+impl Plane {
+  pub fn new(
+    normal: Unit<Vector3<f32>>,
+    center: Point3<f32>,
+    size: (Option<f32>, Option<f32>),
+    rotation: Vector3<f32>,
+  ) -> Plane {
+    let model_matrix = Isometry3::new(center.coords, rotation);
+    Plane {
+      center: Point3::new(0., 0., 0.),
+      object_to_world: model_matrix,
+      world_to_object: model_matrix.inverse(),
+      normal: normal,
+      size: size,
+    }
+  }
 }
 
 impl Castable for Plane {
@@ -21,7 +40,7 @@ impl Castable for Plane {
   }
   // https://www.scratchapixel.com/lessons/3d-basic-rendering/minimal-ray-tracer-rendering-simple-shapes/ray-plane-and-ray-disk-intersection
   fn cast_ray(&self, world_ray: &Ray) -> Option<CastInfo> {
-    let ray = world_ray.apply_isometry(self.inverse_model_matrix());
+    let ray = world_ray.apply_isometry(self.world_to_object);
     let denominator = self.normal.into_inner().dot(&ray.direction);
     if denominator > 0. {
       return None;
@@ -59,7 +78,7 @@ impl Castable for Plane {
         point_hit,
         casted: self,
       }
-      .apply_isometry(self.model),
+      .apply_isometry(self.object_to_world),
     )
   }
 }
@@ -70,11 +89,4 @@ impl Movable for Plane {
   }
 }
 
-impl Shape for Plane {
-  fn model_matrix(&self) -> Isometry3<f32> {
-    self.model
-  }
-  fn inverse_model_matrix(&self) -> Isometry3<f32> {
-    self.model.inverse()
-  }
-}
+impl Shape for Plane {}
