@@ -35,6 +35,12 @@ impl Sphere {
 }
 
 impl Castable for Sphere {
+  fn albedo(&self) -> f32 {
+    return 1.0;
+  }
+  fn specular_n(&self) -> i32 {
+    return 20;
+  }
   fn cast_ray(&self, ray: &Ray) -> Option<CastInfo> {
     let a = self.find_roots_intersection(ray);
     match a {
@@ -60,7 +66,6 @@ impl Castable for Sphere {
           point_hit: point_hit,
           pointing_to_viewer: Unit::new_normalize(ray.origin - point_hit),
           distance: t,
-          albedo: 1.,
           casted: self,
         })
       }

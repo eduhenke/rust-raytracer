@@ -12,6 +12,12 @@ pub struct Plane {
 }
 
 impl Castable for Plane {
+  fn albedo(&self) -> f32 {
+    return 1.0;
+  }
+  fn specular_n(&self) -> i32 {
+    return 5;
+  }
   // https://www.scratchapixel.com/lessons/3d-basic-rendering/minimal-ray-tracer-rendering-simple-shapes/ray-plane-and-ray-disk-intersection
   fn cast_ray(&self, ray: &Ray) -> Option<CastInfo> {
     let denominator = self.normal.into_inner().dot(&ray.direction);
@@ -48,7 +54,6 @@ impl Castable for Plane {
       normal: self.normal,
       pointing_to_viewer: Unit::new_normalize(ray.origin - point_hit),
       point_hit,
-      albedo: 1.,
       casted: self,
     })
   }

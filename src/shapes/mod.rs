@@ -9,7 +9,6 @@ pub struct CastInfo<'a> {
   pub pointing_to_viewer: Unit<Vector3<f32>>,
   pub point_hit: Point3<f32>,
   pub distance: f32,
-  pub albedo: f32,
   pub casted: &'a dyn Castable,
 }
 
@@ -34,6 +33,8 @@ pub fn get_nearest_cast_info<'a>(
 
 pub trait Castable {
   fn cast_ray(&self, ray: &Ray) -> Option<CastInfo>;
+  fn albedo(&self) -> f32;
+  fn specular_n(&self) -> i32;
 }
 
 pub trait Movable {

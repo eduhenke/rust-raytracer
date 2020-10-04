@@ -32,13 +32,14 @@ impl<'a> World<'a> {
       Some(info) => {
         let kd = 0.8;
         let ks = 1. - kd;
-        let specular_n = 20;
         let mut specular = Color::RGB(0, 0, 0);
         let mut diffuse = Color::RGB(0, 0, 0);
+        let nudge = info.normal.into_inner() * 0.01;
+        // Multiple lights(https://www.scratchapixel.com/lessons/3d-basic-rendering/introduction-to-shading/shading-multiple-lights)
         for light in &self.lights {
           // https://www.scratchapixel.com/lessons/3d-basic-rendering/introduction-to-shading/shading-normals
-          let pointing_to_light = Unit::new_normalize(light.ray.origin - info.point_hit);
-          let nudge = info.normal.into_inner() * 0.01;
+          let distance_to_light = light.ray.origin - info.point_hit;
+          let pointing_to_light = Unit::new_normalize(distance_to_light);
           let point_to_light_crosses_object = self
             .shapes
             .iter()
@@ -49,24 +50,31 @@ impl<'a> World<'a> {
               })
             })
             .fold(None, get_nearest_cast_info);
-          if point_to_light_crosses_object.is_some() {
-            continue;
+          match point_to_light_crosses_object {
+            Some(shadow_info) => {
+              // only shadow if casted object is nearer than light
+              if shadow_info.distance < distance_to_light.norm() {
+                continue;
+              }
+            }
+            None => {}
           }
           let facing_ratio: f32 = info.normal.dot(&pointing_to_light).max(0.);
           let reflected_light =
             ((2.0 * facing_ratio) * info.normal.into_inner()) - pointing_to_light.into_inner();
-          let light_intensity = light.intensity / (pointing_to_light.norm_squared());
+          // intensity at point hit
+          let light_intensity_at_point =
+            light.intensity / (4. * PI * distance_to_light.norm_squared());
 
           specular += light.color
-            * light_intensity
+            * light_intensity_at_point
             * info
               .pointing_to_viewer
               .into_inner()
               .dot(&reflected_light)
               .max(0.)
-              .powi(specular_n);
-          // intensity at point hit
-          diffuse += light.color * (info.albedo / PI * light_intensity * facing_ratio);
+              .powi(info.casted.specular_n());
+          diffuse += light.color * (info.casted.albedo() * light_intensity_at_point * facing_ratio);
         }
         let color = diffuse * kd + specular * ks;
         color

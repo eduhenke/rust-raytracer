@@ -19,7 +19,7 @@ impl Mul<f32> for Color {
   type Output = Self;
 
   fn mul(self, rhs: f32) -> Self {
-    let times = |x| ((x as f32) * rhs) as u8;
+    let times = |x| ((x as f32) * rhs).min(255.) as u8;
     Color::RGB(times(self.r), times(self.g), times(self.b))
   }
 }
