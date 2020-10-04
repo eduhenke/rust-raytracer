@@ -8,6 +8,7 @@ use na::{Isometry3, Point3, Unit, Vector3};
 pub struct Plane {
   pub normal: Unit<Vector3<f32>>,
   pub center: Point3<f32>,
+  pub size: (Option<f32>, Option<f32>),
 }
 
 impl Castable for Plane {
@@ -23,7 +24,25 @@ impl Castable for Plane {
     }
 
     let point_hit = ray.origin + (t * ray.direction.into_inner());
-
+    let point_hit_plane_center = point_hit.to_homogeneous() + self.center.to_homogeneous();
+    match self.size.0 {
+      Some(x_) => {
+        let x = point_hit_plane_center.x;
+        if x.abs() > x_ {
+          return None;
+        }
+      }
+      None => {}
+    }
+    match self.size.1 {
+      Some(z_) => {
+        let z = point_hit_plane_center.z;
+        if z.abs() > z_ {
+          return None;
+        }
+      }
+      None => {}
+    }
     Some(CastInfo {
       distance: t,
       normal: self.normal,

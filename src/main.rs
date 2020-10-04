@@ -12,9 +12,9 @@ use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
 use std::time::Instant;
 
-const SCREEN_WIDTH: f32 = 800.0;
-const SCREEN_HEIGHT: f32 = 600.0;
-const SCALE: f32 = 1.0;
+const SCREEN_WIDTH: f32 = 200.0;
+const SCREEN_HEIGHT: f32 = 160.0;
+const SCALE: f32 = 2.5;
 
 mod color;
 mod light;
@@ -77,7 +77,8 @@ fn main() -> Result<(), String> {
   };
   let plane = Plane {
     normal: Unit::new_normalize(Vector3::new(0., 1., 0.)),
-    center: Point3::new(0., 0., 0.),
+    center: Point3::new(0., 0., 12.),
+    size: (Some(6.0), Some(10.0)),
   };
   let shapes: Vec<&(dyn Shape + Sync)> = vec![&sphere, &plane];
 
@@ -100,14 +101,6 @@ fn main() -> Result<(), String> {
         color: Color::RGB(0, 255, 255),
         intensity: 1.0,
       },
-      // PointLight {
-      //   ray: Ray {
-      //     direction: Unit::new_normalize(Vector3::new(0., -1., -1.)),
-      //     origin: Point3::new(0.2, 6., 1.),
-      //   },
-      //   color: Color::RGB(255, 255, 255),
-      //   intensity: 1.0,
-      // },
     ],
   };
 
