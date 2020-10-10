@@ -7,4 +7,5 @@ pub struct Material {
   pub albedo: f32,
   pub k_diffuse: f32,
   pub k_specular: f32,
+  pub index_of_refraction: Option<f32>,
 }

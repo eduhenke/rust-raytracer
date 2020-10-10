@@ -20,6 +20,7 @@ const SCALE: f32 = 1.5;
 mod color;
 mod light;
 mod material;
+mod ops;
 mod ray;
 mod shapes;
 mod world;
@@ -78,6 +79,15 @@ fn main() -> Result<(), String> {
     specular_n: 30,
     k_diffuse: 0.7,
     k_specular: 0.3,
+    index_of_refraction: None,
+  };
+  let transparent_material = Material {
+    albedo: 1.0,
+    color: Color::RGB(0, 0, 0), // TODO
+    specular_n: 30,
+    k_diffuse: 0.0,
+    k_specular: 1.0,
+    index_of_refraction: Some(1.2),
   };
   let opaque_material = Material {
     albedo: 1.0,
@@ -85,10 +95,11 @@ fn main() -> Result<(), String> {
     specular_n: 1,
     k_diffuse: 1.0,
     k_specular: 0.0,
+    index_of_refraction: None,
   };
 
-  let sphere = Sphere::new(Point3::new(-2., 1., -6.), 1., shiny_material);
-  let sphere_b = Sphere::new(Point3::new(5., 2., -12.), 2., shiny_material);
+  let sphere = Sphere::new(Point3::new(-2., 1., -6.), 1., opaque_material);
+  let sphere_b = Sphere::new(Point3::new(3., 2., -12.), 2., shiny_material);
   let sphere_c = Sphere::new(Point3::new(1., 1., -6.5), 0.5, opaque_material);
   let plane = Plane::new(
     Unit::new_normalize(Vector3::new(0., 1., 0.)),
@@ -105,8 +116,7 @@ fn main() -> Result<(), String> {
     opaque_material,
   );
   let shapes: Vec<&(dyn Shape + Sync)> = vec![
-    &sphere, // &sphere_b,
-    // &sphere_c,
+    &sphere, &sphere_b, // &sphere_c,
     // &plane,
     &plane_b,
   ];
@@ -174,13 +184,10 @@ fn main() -> Result<(), String> {
 
         let camera_point = view.inverse_transform_point(&world_point);
 
-        let color = world.get_color_at_ray(
-          &Ray {
-            direction: Unit::new_normalize(camera_point - eye),
-            origin: eye,
-          },
-          0,
-        );
+        let color = world.get_color_at_ray(&Ray {
+          direction: Unit::new_normalize(camera_point - eye),
+          origin: eye,
+        });
         ((x, y), color)
       })
       .collect();

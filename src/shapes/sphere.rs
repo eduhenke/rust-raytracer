@@ -95,3 +95,49 @@ impl Movable for Sphere {
 }
 
 impl Shape for Sphere {}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+  use crate::color::Color;
+
+  #[test]
+  fn test_cast() {
+    let sphere = Sphere::new(
+      Point3::new(0., 0., 0.),
+      1.,
+      Material {
+        color: Color::RGB(0, 0, 0),
+        albedo: 1.0,
+        specular_n: 1,
+        k_diffuse: 1.0,
+        k_specular: 0.0,
+        index_of_refraction: None,
+      },
+    );
+    let front = Unit::new_normalize(Vector3::new(0., 0., 1.));
+    // outside cast
+    match sphere.cast_ray(&Ray {
+      origin: Point3::new(0., 0., -10.),
+      direction: front,
+    }) {
+      None => panic!("should have intersected"),
+      Some(info) => assert_eq!(info.point_hit, Point3::new(0., 0., -1.0)),
+    };
+    // inside cast
+    match sphere.cast_ray(&Ray {
+      origin: Point3::new(0., 0., -0.9),
+      direction: front,
+    }) {
+      None => panic!("should have intersected"),
+      Some(info) => assert_eq!(info.point_hit, Point3::new(0., 0., 1.0)),
+    };
+    // no hit
+    assert!(sphere
+      .cast_ray(&Ray {
+        origin: Point3::new(0., 0., 1.1),
+        direction: front,
+      })
+      .is_none());
+  }
+}

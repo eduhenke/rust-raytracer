@@ -1,7 +1,7 @@
 use sdl2::pixels::Color as SdlColor;
 use std::ops::{Add, AddAssign, Mul};
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub struct Color {
   r: u8,
   g: u8,
@@ -12,6 +12,10 @@ impl Color {
   #[allow(non_snake_case)]
   pub const fn RGB(r: u8, g: u8, b: u8) -> Color {
     Color { r, g, b }
+  }
+
+  pub const fn zero() -> Color {
+    Color::RGB(0, 0, 0)
   }
 }
 
