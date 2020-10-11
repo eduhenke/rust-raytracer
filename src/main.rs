@@ -4,12 +4,14 @@ extern crate sdl2;
 use crate::color::Color;
 use crate::shapes::plane::Plane;
 use crate::shapes::Shape;
+use core::f32::consts::FRAC_PI_2;
+use core::f32::consts::PI;
 use light::PointLight;
 use material::{Material, MaterialType};
 use na::geometry::Rotation3;
 use na::{Isometry3, Perspective3, Point2, Point3};
 use na::{Unit, Vector3};
-use nalgebra::UnitQuaternion;
+use nalgebra::{Quaternion, UnitQuaternion};
 use rayon::prelude::*;
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
@@ -59,7 +61,11 @@ impl From<NDCCoords> for ScreenPoint {
 struct Scene<'a> {
   pub projection: Perspective3<f32>,
   pub world: &'a World<'a>,
-  pub view: Isometry3<f32>,
+  pub eye: Point3<f32>,
+  pub target: Point3<f32>,
+  pub up: Vector3<f32>,
+  pub theta_x: f32,
+  pub theta_y: f32,
 }
 
 fn render(
@@ -67,10 +73,15 @@ fn render(
   Scene {
     projection,
     world,
-    view,
+    eye,
+    target,
+    up,
+    theta_x,
+    theta_y,
   }: &Scene,
 ) -> color::Color {
-  let eye: Point3<f32> = view.inverse_transform_point(&Point3::new(0., 0., 0.));
+  let view = &UnitQuaternion::from_euler_angles(*theta_x, *theta_y, 0.).inverse()
+    * Isometry3::look_at_rh(&eye, &target, &up);
   let screen_point = Point2::new(x as f32, y as f32);
 
   let ndc: NDCCoords = screen_point.into();
@@ -82,7 +93,7 @@ fn render(
   world.get_color_at_ray(
     &Ray {
       direction: Unit::new_normalize(camera_point - eye),
-      origin: eye,
+      origin: *eye,
     },
     0,
   )
@@ -90,27 +101,80 @@ fn render(
 
 fn move_camera(scene: Scene, translation: Vector3<f32>) -> Scene {
   let mut next_scene = scene;
-  next_scene
-    .view
-    .append_translation_mut(&(-translation).into());
+  let rotated_translation = &UnitQuaternion::from_euler_angles(scene.theta_x, scene.theta_y, 0.)
+    .transform_vector(&translation);
+  next_scene.eye += rotated_translation;
+  next_scene.target += rotated_translation;
   next_scene
 }
 
-fn rotate_camera(scene: Scene, degrees: f32) -> Scene {
+fn rotate_camera(scene: Scene, direction: Vector3<f32>, radians: f32) -> Scene {
   let mut next_scene = scene;
-  let rotation: UnitQuaternion<f32> =
-    Rotation3::from_axis_angle(&Unit::new_normalize(Vector3::y()), degrees.to_radians()).into();
-  next_scene.view.append_rotation_mut(&rotation);
+
+  // next_scene.theta_x = (next_scene.theta_x.tan() + (direction.x * radians).tan()).atan();
+  next_scene.theta_x = (next_scene.theta_x + direction.x * radians)
+    .max(-FRAC_PI_2)
+    .min(FRAC_PI_2);
+  next_scene.theta_y += direction.y * radians;
   next_scene
 }
 
 const MOVE_DELTA: f32 = 0.5;
-const ROTATION_DELTA: f32 = 10.0;
+const ROTATION_DELTA: f32 = 10.0f32 * (PI / 180.0f32);
+
+fn handle_input<'a>(
+  scene: Scene<'a>,
+  mouse_clicked: &mut bool,
+  event: sdl2::event::Event,
+) -> Option<Scene<'a>> {
+  match event {
+    Event::Quit { .. } => return None,
+    Event::KeyDown {
+      keycode: Some(key), ..
+    } => {
+      use Keycode::*;
+      match key {
+        Escape => return None,
+        W => return Some(move_camera(scene, Vector3::new(0., 0., -MOVE_DELTA))),
+        S => return Some(move_camera(scene, Vector3::new(0., 0., MOVE_DELTA))),
+        A => return Some(move_camera(scene, Vector3::new(-MOVE_DELTA, 0., 0.))),
+        D => return Some(move_camera(scene, Vector3::new(MOVE_DELTA, 0., 0.))),
+
+        Q => return Some(move_camera(scene, Vector3::new(0., MOVE_DELTA, 0.))),
+        E => return Some(move_camera(scene, Vector3::new(0., -MOVE_DELTA, 0.))),
+
+        Z => return Some(rotate_camera(scene, Vector3::y(), ROTATION_DELTA)),
+        X => return Some(rotate_camera(scene, Vector3::y(), -ROTATION_DELTA)),
+        C => return Some(rotate_camera(scene, Vector3::x(), ROTATION_DELTA)),
+        V => return Some(rotate_camera(scene, Vector3::x(), -ROTATION_DELTA)),
+        _ => {}
+      };
+    }
+    Event::MouseWheel { y, .. } => {
+      return Some(move_camera(scene, Vector3::new(0., 0., -y as f32)))
+    }
+    Event::MouseButtonDown { .. } => *mouse_clicked = true,
+    Event::MouseButtonUp { .. } => *mouse_clicked = false,
+    Event::MouseMotion { xrel, yrel, .. } if *mouse_clicked => {
+      let y_rotation = Vector3::y() * (-xrel as f32) * (PI / (SCREEN_WIDTH * SCALE));
+      let x_rotation = Vector3::x() * (-yrel as f32) * (PI / (SCREEN_HEIGHT * SCALE));
+      let axis = Unit::new_normalize(x_rotation + y_rotation);
+      return Some(rotate_camera(
+        scene,
+        axis.into_inner(),
+        (x_rotation + y_rotation).norm(),
+      ));
+    }
+    _ => {}
+  }
+  Some(scene)
+}
 
 fn get_next_scene<'a>(
   last_scene: Option<Scene<'a>>,
   world: &'a world::World,
   event_pump: &mut sdl2::EventPump,
+  mut mouse_clicked: &mut bool,
 ) -> Option<Scene<'a>> {
   match last_scene {
     None => {
@@ -119,38 +183,21 @@ fn get_next_scene<'a>(
       Some(Scene {
         // A perspective projection.
         projection: Perspective3::new(SCREEN_WIDTH / SCREEN_HEIGHT, 3.14 / 2.0, 1.0, 1000.0),
-        view: Isometry3::look_at_rh(&eye, &target, &Vector3::y()),
+        // view: Isometry3::look_at_rh(&eye, &target, &Vector3::y()),
+        eye,
+        target,
+        up: Vector3::y(),
         world,
+        theta_x: 0.,
+        theta_y: 0.,
       })
     }
-    Some(scene) => {
-      for event in event_pump.poll_iter() {
-        match event {
-          Event::Quit { .. } => return None,
-          Event::KeyDown {
-            keycode: Some(key), ..
-          } => {
-            use Keycode::*;
-            match key {
-              Escape => return None,
-              W => return Some(move_camera(scene, Vector3::new(0., 0., -MOVE_DELTA))),
-              S => return Some(move_camera(scene, Vector3::new(0., 0., MOVE_DELTA))),
-              A => return Some(move_camera(scene, Vector3::new(-MOVE_DELTA, 0., 0.))),
-              D => return Some(move_camera(scene, Vector3::new(MOVE_DELTA, 0., 0.))),
-
-              Q => return Some(move_camera(scene, Vector3::new(0., MOVE_DELTA, 0.))),
-              E => return Some(move_camera(scene, Vector3::new(0., -MOVE_DELTA, 0.))),
-
-              Z => return Some(rotate_camera(scene, ROTATION_DELTA)),
-              X => return Some(rotate_camera(scene, -ROTATION_DELTA)),
-              _ => {}
-            };
-          }
-          _ => {}
-        }
-      }
-      Some(scene)
-    }
+    Some(scene) => event_pump
+      .poll_iter()
+      .fold(Some(scene), |last_scene, event| match last_scene {
+        None => None,
+        Some(scene) => handle_input(scene, &mut mouse_clicked, event),
+      }),
   }
 }
 
@@ -240,22 +287,18 @@ fn main() -> Result<(), String> {
   };
 
   let mut scene: Option<Scene> = None;
-
+  let mut mouse_clicked = false;
   'running: loop {
     let loop_time = Instant::now();
-    match get_next_scene(scene, &world, &mut event_pump) {
+    match get_next_scene(scene, &world, &mut event_pump, &mut mouse_clicked) {
       None => break 'running,
       Some(next_scene) => scene = Some(next_scene),
     };
 
-    // Our camera looks toward the point (1.0, 0.0, 0.0).
-
     let grid: Vec<(i32, i32)> = (0..(SCREEN_WIDTH as i32))
       .flat_map(|x| (0..(SCREEN_HEIGHT as i32)).map(move |y| (x, y)))
       .collect();
-    // let ndc_to_world = projection.inverse();
-    // let world_to_camera: Matrix4<f32> = view.inverse().into();
-    // let ndc_to_camera = ndc_to_world * world_to_camera;
+
     let color_grid: Vec<((i32, i32), Color)> = grid
       .into_par_iter()
       // .into_iter()
@@ -271,7 +314,8 @@ fn main() -> Result<(), String> {
 
     let micros = loop_time.elapsed().as_micros();
     let fps = 1_000_000 / micros;
-    println!("elapsed(ms): {} | fps: {}", micros / 1000, fps)
+
+    println!("elapsed(ms): {} | fps: {}", micros / 1000, fps,);
   }
 
   Ok(())
