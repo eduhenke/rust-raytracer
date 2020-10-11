@@ -1,6 +1,9 @@
 use super::{super::ray::Ray, CastInfo};
 use super::{Castable, Movable};
-use crate::{material::Material, shapes::Shape};
+use crate::{
+  material::{Material, MaterialType},
+  shapes::Shape,
+};
 use na::{Isometry3, Point3, Unit};
 use nalgebra::Vector3;
 
@@ -51,6 +54,13 @@ impl Sphere {
 }
 
 impl Castable for Sphere {
+  fn is_shadow_casting(&self) -> bool {
+    match self.material.material_type {
+      MaterialType::Refraction { .. } => false,
+      _ => true,
+    }
+  }
+
   fn cast_ray(&self, world_ray: &Ray) -> Option<CastInfo> {
     let ray = &world_ray.apply_isometry(self.world_to_object);
     let a = self.find_roots_intersection(ray);

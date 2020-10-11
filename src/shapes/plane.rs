@@ -1,7 +1,10 @@
 use super::Castable;
 use super::{super::ray::Ray, CastInfo};
 use crate::shapes::Shape;
-use crate::{material::Material, shapes::Movable};
+use crate::{
+  material::{Material, MaterialType},
+  shapes::Movable,
+};
 use na::{Isometry3, Point3, Unit, Vector3};
 
 #[derive(Debug, Copy, Clone)]
@@ -36,6 +39,13 @@ impl Plane {
 }
 
 impl Castable for Plane {
+  fn is_shadow_casting(&self) -> bool {
+    match self.material.material_type {
+      MaterialType::Refraction { .. } => false,
+      _ => true,
+    }
+  }
+
   // https://www.scratchapixel.com/lessons/3d-basic-rendering/minimal-ray-tracer-rendering-simple-shapes/ray-plane-and-ray-disk-intersection
   fn cast_ray(&self, world_ray: &Ray) -> Option<CastInfo> {
     let ray = world_ray.apply_isometry(self.world_to_object);

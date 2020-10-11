@@ -1,5 +1,4 @@
 use na::{Unit, Vector3};
-use std::f32::consts::FRAC_PI_2;
 
 pub fn reflect(v: &Vector3<f32>, n: &Unit<Vector3<f32>>) -> Vector3<f32> {
   2.0 * n.dot(v) * n.into_inner() - v
@@ -11,8 +10,9 @@ pub fn refract(
   n_i: f32,
   n_t: f32,
 ) -> Option<Vector3<f32>> {
-  let cos_i = -n.dot(i);
+  let cos_i = -n.dot(i).max(-1.0).min(1.0);
   let theta_i: f32 = cos_i.acos();
+  // println!("theta_i: {} | cos_i: {}", theta_i.to_degrees(), cos_i);
   if theta_i.is_nan() {
     return None;
   }
@@ -38,6 +38,25 @@ pub fn refract(
   let t: Vector3<f32> = a + b;
   Some(t)
 }
+
+pub fn fresnel(i: &Unit<Vector3<f32>>, n: &Unit<Vector3<f32>>, n_i: f32, n_t: f32) -> (f32, f32) {
+  let cos_i = -n.dot(i).max(-1.0).min(1.0);
+  let theta_i: f32 = cos_i.acos();
+  let sin_i = theta_i.sin();
+
+  // snell's law
+  let sin_t = (n_i / n_t) * sin_i;
+  if sin_t >= 1. {
+    return (1., 0.);
+  }
+  let theta_t = sin_t.asin();
+  let cos_t = theta_t.cos();
+  let rs = ((n_t * cos_i) - (n_i * cos_t)) / ((n_t * cos_i) + (n_i * cos_t));
+  let rp = ((n_i * cos_t) - (n_t * cos_i)) / ((n_i * cos_t) + (n_t * cos_i));
+  let kr = (rs.powi(2) + rp.powi(2)) / 2.;
+  (kr, 1. - kr)
+}
+
 #[cfg(test)]
 mod tests {
   use nalgebra::Isometry3;

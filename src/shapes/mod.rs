@@ -50,6 +50,7 @@ pub fn get_nearest_cast_info<'a>(
 
 pub trait Castable {
   fn cast_ray(&self, ray: &Ray) -> Option<CastInfo>;
+  fn is_shadow_casting(&self) -> bool;
 }
 
 pub trait Movable {
